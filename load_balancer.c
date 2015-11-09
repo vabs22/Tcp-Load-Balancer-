@@ -4,41 +4,48 @@
 #include <string.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include "utilities.c"
+#include "roundrob.c"
 
-struct args
-{
-    int socket_desc;
-    char ip[34];
-    int port;
-};
 
 void *connection_handler(void * arg1)
 {
     //Get the socket descriptor
 
-    struct args * argum = (struct args*)arg1;
-    int sock = argum->socket_desc;
-    char server_ip[34];
-    strcpy(server_ip , argum->ip);
-    int server_port = argum->port;
+    struct args * argnum = (struct args*)arg1;
+    char client_ip[40] ;
+    char * error_mssg = "Service not available , server maybe temporarily down\n";
+
+    int sock = argnum->socket_desc;
+    strcpy(client_ip , argnum->client_ip_addr);
+    int client_port = argnum -> client_port;
+    struct server_node *  server_details = argnum -> server_details; 
 
     struct sockaddr_in server;
     int socket_desc = socket(AF_INET , SOCK_STREAM , 0);  // creates an unbound socket
     if(socket_desc == -1)
         printf("Couldn't create socket\n");
+
     server.sin_family = AF_INET;
-    server.sin_addr.s_addr = inet_addr(server_ip);
-    server.sin_port = htons( server_port );
+    server.sin_addr.s_addr = inet_addr(server_details -> ip_addr);
+    server.sin_port = htons( server_details -> port );
+
+    //printf("%s:%d",server_details -> ip_addr,server_details -> port);
+
 
     // connecting to server
     if (connect(socket_desc , (struct sockaddr *)&server,sizeof(server)) < 0)
     {
         printf("Connection with server error\n");
+        write(sock, error_mssg , 60);
+        close(sock);
         return ;
     }
 
     int read_size;
     char *message , client_message[2000] , server_message[2000];
+
+
     
     while( (read_size = recv(sock , client_message , 2000 , 0)) > 0 )
     {
@@ -69,7 +76,7 @@ void *connection_handler(void * arg1)
 
 int main(int argc , char *argv[])
 {
-    int socket_desc , host , c , number = 1;
+    int socket_desc , host , c , current_srv_number = 1;
     struct sockaddr_in server , client;
     pthread_t thread_id;
 
@@ -96,18 +103,22 @@ int main(int argc , char *argv[])
     // accept incoming connections
     c =  sizeof( struct sockaddr_in);
 
+    int srv_num = 0;
+    struct server_node * srv_array = initialise_roundrob(&srv_num , "roundrobin_srv_confg.txt");
+
     while(host = accept(socket_desc , (struct sockaddr *)&client ,(socklen_t*)&c))
     {
         printf("New connection accepted:%d\n\n",host);
         
         struct args * arg1 = malloc(sizeof(struct args));
         arg1->socket_desc = host;
-        sprintf(arg1->ip , "127.0.0.1");
-        arg1->port = 5000 + number*10;
+        strcpy(arg1->client_ip_addr , inet_ntoa(client.sin_addr));
+        arg1->client_port = ntohs(client.sin_port);
+        arg1->server_details = &srv_array[current_srv_number];
 
-        number++;
-        if(number == 4)
-            number = 1;
+        current_srv_number++;
+        if(current_srv_number == srv_num)
+            current_srv_number = 0;
 
         if( pthread_create( &thread_id , NULL , connection_handler , (void*) arg1) < 0)
         {
