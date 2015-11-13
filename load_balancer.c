@@ -93,7 +93,7 @@ void *connection_handler(void * arg1)
 
 int main(int argc , char *argv[])
 {
-    int socket_desc , host , c , current_srv_number = 0;
+    int socket_desc , host , c , current_srv_number = 0 , limit = 0 , list[70000] = {0};
     struct sockaddr_in server , client;
     pthread_t thread_id;
     int type=0;
@@ -138,7 +138,10 @@ int main(int argc , char *argv[])
 
     struct server_node * srv_array;
     if(type == 1)
+    {
         srv_array = initialise_roundrob(&srv_num , "srv_confg.txt"); // round robin
+        limit = array_order(list , srv_array , srv_num);
+    }
     else if(type == 2)
     {
         // client's ip forwarding
@@ -164,10 +167,10 @@ int main(int argc , char *argv[])
         arg1->client_port = ntohs(client.sin_port);
 
         // for round robin
-        arg1->server_details = &srv_array[current_srv_number];
+        arg1->server_details = &srv_array[list[current_srv_number]];
 
         current_srv_number++;
-        if(current_srv_number == srv_num)
+        if(current_srv_number == limit)
             current_srv_number = 0;
 
         if( pthread_create( &thread_id , NULL , connection_handler , (void*) arg1) < 0)

@@ -6,6 +6,7 @@ struct server_node
 	char ip_addr[40];
 	int port;
 	int flag_check;
+	int weight;
 };
 
 

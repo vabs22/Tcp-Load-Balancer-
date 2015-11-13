@@ -25,9 +25,36 @@ struct server_node* initialise_roundrob (int* srv_num , char* fname)
     	fscanf(fp , "%s" ,srv_array[i].ip_addr);
     	fscanf(fp , "%d" ,&srv_array[i].port);
     	fscanf(fp , "%d" ,&srv_array[i].flag_check);
+        fscanf(fp , "%d" ,&srv_array[i].weight);
 
         //printf("%s_%s_%d_%d" , srv_array[i].node_name , srv_array[i].ip_addr , srv_array[i].port , srv_array[i].flag_check);
         //printf("\n");
     }
     return srv_array;
+}
+
+int array_order(int list[] ,struct server_node* srv_array , int srv_num)
+{
+    int aux[50] = {0};
+    int i = 0 , sum = 0 , k = 0;
+
+    for(i=0;i<srv_num;i++)
+    {
+        aux[i] = srv_array[i].weight;
+        sum += aux[i];
+    }
+    i = 0;
+    while(sum > 0)
+    {
+        if(aux[i] > 0)
+        {
+            list[k] = i;
+            k++;
+            sum --;
+        }
+        i++;
+        if(i == srv_num)
+            i = 0;
+    }
+    return k;
 }

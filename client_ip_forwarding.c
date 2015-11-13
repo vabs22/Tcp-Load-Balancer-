@@ -156,6 +156,7 @@ struct server_node* init_ipforward(int* srv_num , char* f1name , char *f2name)
     	fscanf(fp , "%s" ,srv_array[i].ip_addr);
     	fscanf(fp , "%d" ,&srv_array[i].port);
     	fscanf(fp , "%d" ,&srv_array[i].flag_check);
+        fscanf(fp , "%d" ,&srv_array[i].weight);
     	strcpy(str_list[i] , srv_array[i].node_name);
     	//printf("%s\n",str_list[i]);
         //printf("%s_%s_%d_%d" , srv_array[i].node_name , srv_array[i].ip_addr , srv_array[i].port , srv_array[i].flag_check);
