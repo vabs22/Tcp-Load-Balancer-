@@ -14,6 +14,7 @@ struct args
     int socket_desc;
     char client_ip_addr[40];
     int client_port;
+    int algo_type;
     struct server_node * server_details;
 };
 
