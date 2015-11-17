@@ -15,12 +15,11 @@ void gen_bitarray1(char str[] , char targ[]);
 void *connection_handler(void * arg1)
 {
     //Get the socket descriptor
-
     struct args * argnum = (struct args*)arg1;
     char client_ip[40] ;
     char str_ip[35];
     char * error_mssg = "Service not available , server maybe temporarily down\n";
-
+    
     int sock = argnum->socket_desc;
     strcpy(client_ip , argnum->client_ip_addr);
     int client_port = argnum -> client_port;
@@ -28,7 +27,7 @@ void *connection_handler(void * arg1)
 
     struct server_node *  server_details;
     if(type == 1)
-        server_details = argnum -> server_details;  // for round robin
+        server_details = (struct server_node *)argnum -> server_details;  // for round robin
     else if(type == 2)
     {
         gen_bitarray1(client_ip , str_ip);
@@ -36,20 +35,18 @@ void *connection_handler(void * arg1)
         // for client ip forwarding logic
         server_details = get_server_trie(str_ip);
     }
-
+    
     struct sockaddr_in server;
     int socket_desc = socket(AF_INET , SOCK_STREAM , 0);  // creates an unbound socket
     if(socket_desc == -1)
         printf("Couldn't create socket\n");
-
     server.sin_family = AF_INET;
     server.sin_addr.s_addr = inet_addr(server_details -> ip_addr);
     server.sin_port = htons( server_details -> port );
     printf("%s_%d\n",(server_details -> ip_addr),( server_details -> port ));
 
     //printf("%s:%d",server_details -> ip_addr,server_details -> port);
-
-
+    
     // connecting to server
     if (connect(socket_desc , (struct sockaddr *)&server , sizeof(server)) < 0)
     {
@@ -93,7 +90,7 @@ void *connection_handler(void * arg1)
 
 int main(int argc , char *argv[])
 {
-    int socket_desc , host , c , current_srv_number = 0 , limit = 0 , list[70000] = {0};
+    int socket_desc , host , c , current_srv_number = 0 , limit = 0 , x = 0;
     struct sockaddr_in server , client;
     pthread_t thread_id;
     int type=0;
@@ -106,7 +103,7 @@ int main(int argc , char *argv[])
     }
 
     // for testing client ip method
-    //char * names[5] = {"127.0.0.1" , "127.127.0.0" , "222.222.222.222" , "0.189.221.47"};
+    char * names[5] = {"127.0.0.1" , "127.127.0.0" , "222.222.222.222" , "0.189.221.47"};
 
     socket_desc = socket(AF_INET , SOCK_STREAM , 0);  // creates an unbound socket
     if(socket_desc == -1)
@@ -136,17 +133,22 @@ int main(int argc , char *argv[])
     // round robin , if statements to be added 
     //->>>>>>>    
 
-    struct server_node * srv_array;
     if(type == 1)
     {
-        srv_array = initialise_roundrob(&srv_num , "srv_confg.txt"); // round robin
-        limit = array_order(list , srv_array , srv_num);
+        limit = initialise_roundrob(&srv_num , "srv_confg.txt"); // round robin
+        merge_sort(0 , limit-1);
+        iter = 0;
+        base = 1;
+        end = limit-1;
+        while( end >= 0 && weight_list[end] < base)
+            end--;
+        //limit = array_order(list , srv_array , srv_num);
     }
     else if(type == 2)
     {
         // client's ip forwarding
         head = create_node();
-        srv_array = init_ipforward(&srv_num , "srv_confg.txt" , "forwarding_scheme.txt");
+        init_ipforward(&srv_num , "srv_confg.txt" , "forwarding_scheme.txt");
     }
 
 
@@ -155,32 +157,57 @@ int main(int argc , char *argv[])
         printf("New connection accepted:%d\n\n",host);
         
         struct args * arg1 = malloc(sizeof(struct args));
+    
         arg1->socket_desc = host;
 
         //actual one
         strcpy(arg1->client_ip_addr , inet_ntoa(client.sin_addr));
         arg1->algo_type = type;
         //for testing
-        //strcpy(arg1->client_ip_addr , names[current_srv_number]);
+        /*
+        strcpy(arg1->client_ip_addr , names[x]);
+        x ++;
+        printf("%d_%s\n" , x , names[x]);
+        if(x == 4)
+            x = 0;
         //printf("%s\n",names[current_srv_number]);
+        */
 
         arg1->client_port = ntohs(client.sin_port);
 
         // for round robin
-        arg1->server_details = &srv_array[list[current_srv_number]];
+        arg1->server_details = srv_array[srv_id[iter]];
+        //printf("%d_%d_%d \n" , iter , srv_id[iter]  , weight_list[iter]);
+        
+        //printf("%s\n" ,srv_array[srv_id[iter]]->ip_addr );
 
-        current_srv_number++;
-        if(current_srv_number == limit)
-            current_srv_number = 0;
+        iter++;
 
+        if(iter == limit)
+        {
+            iter = 0;
+            base ++;
+            while( end >= 0 && weight_list[end] < base)
+                end--;
+        }
+
+        if(end < 0)
+        {
+            iter = 0;
+            base = 1;
+            end = limit-1;
+        }
+
+        
         if( pthread_create( &thread_id , NULL , connection_handler , (void*) arg1) < 0)
         {
-            perror("could not create thread");
+            printf("could not create thread");
             return 1;
         }
         //Now join the thread , so that we dont terminate before the thread
         //pthread_join( thread_id , NULL);
         puts("Handler assigned");
+        //sleep(120);
     }
     if (host < 0)
     {

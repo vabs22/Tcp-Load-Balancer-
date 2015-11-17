@@ -128,10 +128,10 @@ void gen_bitarray1(char str[] , char targ[])
 }
 
 
-struct server_node* init_ipforward(int* srv_num , char* f1name , char *f2name)
+void init_ipforward(int* srv_num , char* f1name , char *f2name)
 {
 	FILE *fp;
-	int srv_num_local = 0 , i , entries , j;
+	int srv_num_local = 0 , i , entries , j , check[105] = {0} , id_num;
 	char node_name[50]  , ip_addr[35] , str_ip[35];
 	char str_list[50][50];
 
@@ -148,19 +148,18 @@ struct server_node* init_ipforward(int* srv_num , char* f1name , char *f2name)
     *(srv_num) = srv_num_local;
     //printf("%d\n",srv_num_local);
 
-    struct server_node * srv_array = malloc(srv_num_local * sizeof(struct server_node));
-
     for(i=0;i<srv_num_local;i++)
     {
-    	fscanf(fp , "%s" ,srv_array[i].node_name );
-    	fscanf(fp , "%s" ,srv_array[i].ip_addr);
-    	fscanf(fp , "%d" ,&srv_array[i].port);
-    	fscanf(fp , "%d" ,&srv_array[i].flag_check);
-        fscanf(fp , "%d" ,&srv_array[i].weight);
-    	strcpy(str_list[i] , srv_array[i].node_name);
-    	//printf("%s\n",str_list[i]);
-        //printf("%s_%s_%d_%d" , srv_array[i].node_name , srv_array[i].ip_addr , srv_array[i].port , srv_array[i].flag_check);
-        //printf("\n");
+        fscanf(fp , "%d" ,&id_num);
+        srv_array[id_num] = (struct server_node * )malloc(sizeof(struct server_node));
+        srv_array[id_num]->id_num = id_num;
+        fscanf(fp , "%s" ,srv_array[id_num]->node_name );
+        fscanf(fp , "%s" ,srv_array[id_num]->ip_addr);
+        fscanf(fp , "%d" ,&srv_array[id_num]->port);
+        fscanf(fp , "%d" ,&srv_array[id_num]->flag_check);
+        fscanf(fp , "%d" ,&srv_array[id_num]->weight);
+        check[id_num] = 1;
+        //printf("%d_%s\n",id_num , srv_array[id_num]->ip_addr);
     }
 
 
@@ -177,25 +176,22 @@ struct server_node* init_ipforward(int* srv_num , char* f1name , char *f2name)
     fscanf(fp,"%d",&entries);
     for(i=0;i<entries;i++)
     {
+        fscanf(fp , "%d" ,&id_num);
     	fscanf(fp , "%s" ,ip_addr);
     	fscanf(fp , "%s" ,node_name);
-    	//printf("%d\n",i);
-    	for(j=0;j<srv_num_local;j++)
-    	{
-    		//printf("%s\n",str_list[j]);
-    		if(strcmp(node_name , str_list[j]) == 0)
-    			break;
-    	}
-    	if(j >= srv_num_local)
-    	{
-    		printf("Error , unknown server name found\n");
-    		return ;
-    	}
-    	gen_bitarray1(ip_addr , str_ip);
-    	//printf("%s\n",str_ip);
-    	//printf("12222222222222");
-    	trie_insert(head , str_ip , 0 , strlen(str_ip) , &srv_array[j]);
+    	
+        if(id_num <= 100 && check[id_num] == 1)
+        {
+            gen_bitarray1(ip_addr , str_ip);
+            trie_insert(head , str_ip , 0 , strlen(str_ip) , srv_array[id_num]);
+        }
+        else
+        {
+            printf("Error , unknown server name found\n");
+            return ;
+        }
+    	
     }
 
-    return srv_array;	
+    return ;	
 }
