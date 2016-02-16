@@ -1,8 +1,13 @@
 #include <stdio.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include <string.h>
 #include <stdlib.h>
+
 
 
 int main(int argc , char *argv[])
@@ -10,14 +15,15 @@ int main(int argc , char *argv[])
 	int socket_desc , host , c;
 	struct sockaddr_in server , client;
 	char message[2000]  , reply[2000];
+	int num = atoi(argv[1]);
 
 	socket_desc = socket(AF_INET , SOCK_STREAM , 0);  
 	if(socket_desc == -1)
 		printf("Couldn't create socket\n");
 	
-	server.sin_addr.s_addr = inet_addr("127.0.0.1");
+	server.sin_addr.s_addr = inet_addr("192.168.1.36");
 	server.sin_family = AF_INET;
-	server.sin_port = htons( 5010 );
+	server.sin_port = htons( 6000 + num );
 
 	// binding port to address
 	if (bind(socket_desc,(struct sockaddr *)&server, sizeof(server)) < 0)
@@ -45,9 +51,9 @@ int main(int argc , char *argv[])
 	    }
 	    printf("%s\n",message);
 	    
-		sprintf(reply ,"Hello client ! Greetings from server 1\n");
+		sprintf(reply ,"Hello client ! Greetings from server %d\n" , num);
 
-		write(host ,reply , sizeof(reply),0);
+		write(host ,reply , sizeof(reply));
 	}
 	
 	close(socket_desc);

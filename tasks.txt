@@ -1,0 +1,5 @@
+1. implement ip forwarding
+2. read about weighted round robin
+3. implement it
+4. check if both of them are working
+5. start workingon dynamic configuration file update

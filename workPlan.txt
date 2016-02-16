@@ -1,0 +1,32 @@
+## Final output
+
+1. algos :
+	-> round robin with weights
+	-> based on source ip of request
+	-> base on request type (will take into account server's occupation) - after connection setup , user will send the type of 			request which will also be forwarded to final server 
+
+2. periodically checking which nodes are live and forwarding to them or to their backup nodes . As a node goes out update the 		   forwarding mechanism and vice versa
+
+3. dyanamic settings update :
+	separate ip which receives request for configuration update
+	the request can be one of multiple types only (tbd)
+		----
+4. salient feature :
+	front end and backend for the load balancer process so that multiple processes can run ,
+	also the configuration file should be specified for the process
+
+5. settings to prevent denial of service attack
+
+6. logging
+## tasks :	
+(Keep testing after implementing anything)
+
+1. basic configuration file layout made up of front end and back end
+2. develop the model of tlb to handle requests for various algos and situations , taking into the the periodic checking of whether a node  is up or not 
+3. implement the model for all 3 algos
+4. add the periodic checking thing
+5. setup the system for dynamic update , like what functions would provide what services
+6. implement and add the dynamic update system
+7. tackle how to prevent denial of service attack
+8. add logging functionality
+9. add it and that's it for now , however keep adding any new ideas in the new ideas file

@@ -1,0 +1,38 @@
+HEAD
+ip
+port
+tailnum(1-256)
+##
+
+TAIL
+tailnum
+Algo(ROUNDROB / IPFOR / REQFOR)
+srvnums
+##
+
+SERVER
+srvnum(1-64) ip port CHECK
+.
+##
+
+ROUNDROB
+srvnum weight
+.
+##
+
+IPFOR 
+addr srvnum
+.
+##
+
+REQTYPES
+request reqnum(1-64)
+.
+##
+
+REQFOR
+reqnum srvnum
+.
+##
+
+

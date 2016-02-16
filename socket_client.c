@@ -1,5 +1,10 @@
+#include <iostream>
 #include <stdio.h>
 #include <sys/socket.h>
+#include <arpa/inet.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <netinet/in.h>
 #include <arpa/inet.h>
 #include <string.h>
 #include <stdlib.h>
@@ -10,14 +15,13 @@ int main(int argc , char *argv[])
 	struct sockaddr_in server;
 	char message[2000] , reply[2000];
 
-
 	socket_desc = socket(AF_INET , SOCK_STREAM , 0);  
 	if(socket_desc == -1)
 		printf("Couldn't create socket\n");
 	
 	server.sin_family = AF_INET;
-	server.sin_addr.s_addr = inet_addr("127.0.0.1");
-	server.sin_port = htons( 8088 );
+	server.sin_addr.s_addr = inet_addr("192.168.1.36");
+	server.sin_port = htons( 5050 );
 
 	// connecting to server
 	if (connect(socket_desc , (struct sockaddr *)&server,sizeof(server)) < 0)

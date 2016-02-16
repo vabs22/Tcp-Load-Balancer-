@@ -1,0 +1,4 @@
+1. distributed load balancing , hierarchial load balancing
+2. dynamically changing number of servers of one kind , like in a total of x servers having n possible services , providing x/n servers to each service and then dynamically updating the number of servers per service depending upon the traffic of each service.  
+3. support for disabling or ignoring requests from a particular user if number of request exceed a certain range (basically prevent denial of service attack)
+4. inplace of third algo , create something like group load balancing i.e. forward particular type of requests to a particular group and periodically keep updatign the group size
