@@ -309,3 +309,74 @@ struct trie_leaf* trie_getserver(struct trie_node* ptr , std::string const& bini
 		}
 	}
 }
+int gcd(int a , int b)
+{
+	if(a<b)
+		return gcd(b,a);
+	return b==0?a:gcd(b,a%b);
+}
+int setup_roundrobin()
+{
+	/*
+	Supposing that there is a server set S = {S0, S1, …, Sn-1};
+	W(Si) indicates the weight of Si;
+	i indicates the server selected last time, and i is initialized with -1;
+	cw is the current weight in scheduling, and cw is initialized with zero; 
+	max(S) is the maximum weight of all the servers in S;
+	gcd(S) is the greatest common divisor of all server weights in S;
+	*/
+	vector < pair <int,int> > vec;
+	int i=0 , totalplaces = 0 , iter , totalservers = 0, cw = 0 , maxweight = 0, gcdweights = 1 , numservers = 0;
+
+	memset(server_allotment , 0 , sizeof(server_allotment));
+
+	for(int i=0;i<MAXSERVERS;i++)
+	{
+		if(ptrTailNode[tailnum]->checkserver(i))
+		{
+			vec.push_back(make_pair(ptrServer[i]->getweight(),i));
+			totalplaces += ptrServer[i]->getweight();
+			numservers ++;
+		}
+	}
+
+	sort(vec.begin() , vec.end() , std::greater< pair <int , int > >());
+	if(vec.size() >= 2)
+	{
+		maxweight = max(vec[0].first , vec[1].first);
+		gcdweights = gcd(vec[0].first , vec[1].first);
+		for(i=2;i<vec.size();i++)
+		{
+			maxweight = max(maxweight , vec[i].first);
+			gcdweights = gcd(gcdweights , vec[i].first);
+		}
+		
+		i = -1;
+		for(iter=0;iter<totalplaces;iter++)
+		{
+			while (true) 
+			{
+			    i = (i + 1) % numservers;
+			    if (i == 0) 
+			    {
+			        cw = cw - gcdweights; 
+			        if (cw <= 0) 
+			        {
+			            cw = maxweight;
+			            if (cw == 0)
+			            	return 0;
+			        }
+			    } 
+			    if (vec[i].first >= cw) 
+			    {
+			    	server_allotment[iter] = vec[i].second;
+			    	break;
+			    }
+			}
+		}
+	}
+	for(i=0;i<totalplaces;i++)
+		cout<<server_allotment[i]<<endl;
+	return totalplaces;
+	
+}

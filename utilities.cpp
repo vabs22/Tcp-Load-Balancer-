@@ -146,6 +146,11 @@ class Server
     {
     	return port;
     }
+
+    int getweight()
+    {
+        return weight;
+    }
 };
 
 // node of binary tree

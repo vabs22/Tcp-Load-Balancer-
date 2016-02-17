@@ -4,12 +4,13 @@
 HeadNode * ptrHeadNode = NULL;
 TailNode* ptrTailNode[MAXTAILNODES];
 Server* ptrServer[MAXSERVERS];
-int serverWeights[MAXSERVERS] = {0} , algonum = 0;
+int serverWeights[MAXSERVERS] = {0} , algonum = 0 , tailnum = -1 , totalplaces =0 , iter = 0;
 
 struct trie_node* head = NULL;
 struct trie_leaf* start = NULL , *end = NULL;
 vector < pair < std::string , int > > network_mapping , request_types;
 vector < pair<int,int> >request_mapping; 
+int server_allotment[MAXROUNDROBSLOTS] = {0};
 
 #include "functions.cpp"
 
@@ -85,10 +86,10 @@ void initialise_forwarding_environment()
 
 int main(int argc , char *argv[])
 {
-    int socket_desc , host , addr_size = 0 , current_srv_number = 0 , limit = 0 , x = 0;
+    int socket_desc , host , addr_size = 0 , current_srv_number = 0 , limit = 0 , x = 0 , srvnum = 0;
     struct sockaddr_in server_addr , client_addr;
     pthread_t thread_id;
-    int type = 0 , status = 0 , yes = 1 , tailnum = -1 , client_port = 0;
+    int type = 0 , status = 0 , yes = 1 , client_port = 0;
     std::string client_ip;
 
     if( argc == 2 )
@@ -151,7 +152,13 @@ int main(int argc , char *argv[])
     algonum = ptrTailNode[tailnum]->getalgo();
     if(algonum == ROUNDROBCODE)
     {
-
+        totalplaces = setup_roundrobin();
+        if(totalplaces <= 0)
+        {
+            printf("Due to some unknown (obviously) error , round robin environment couldn't be setup\n");
+            return -1;
+        }
+        iter = 0;
     }
     else if(algonum == IPFORCODE)
     {
@@ -159,9 +166,10 @@ int main(int argc , char *argv[])
         pair<std::string , int>p;
         for(int u=0;u<network_mapping.size();u++)
         {
-            cout<<u<<endl;
+            //cout<<u<<endl;
             p = network_mapping[u];
-            trie_insert(head , NULL , convertStrToBin(p.first) , 0 , 32 , p.second);
+            if(ptrTailNode[tailnum]->checkserver(p.second))
+                trie_insert(head , NULL , convertStrToBin(p.first) , 0 , 32 , p.second);
         }
     }
     // accept incoming connections
@@ -175,7 +183,6 @@ int main(int argc , char *argv[])
         // client's data accumulation 
         //client_ip = inet_ntoa(client_addr.sin_addr);
         client_ip = ips[iter];
-        iter = (iter+1)%4;
         client_port = ntohs(client_addr.sin_port);
 
         struct thread_args * arg = (struct thread_args *)malloc(sizeof(struct thread_args));
@@ -186,14 +193,17 @@ int main(int argc , char *argv[])
         //actual one
         if(algonum == ROUNDROBCODE)
         {
-
+            srvnum = server_allotment[iter];
+            iter = (iter+1)%totalplaces;
+            arg->srvnum = srvnum;
         }
         else if(algonum == IPFORCODE)
         {
             struct trie_leaf* tmp = trie_getserver(head , convertStrToBin(client_ip));
             arg->srvnum = tmp->srvnum;
-            printf("srvnum :%d\n",tmp->srvnum);
+            srvnum = arg->srvnum;
         }
+        printf("srvnum :%d , iter : %d\n",srvnum,iter);
 
         if( pthread_create( &thread_id , NULL , handle_connection , (void*) arg) < 0)
         {

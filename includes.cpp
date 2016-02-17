@@ -1,4 +1,5 @@
 #include <iostream>
+#include <algorithm>
 #include <fstream>
 #include <string>
 #include <vector>
@@ -18,16 +19,9 @@
 #define NUMCONNECTIONS 100
 #define IPFORCODE	1729			// C.P. Ramanujam's number
 #define ROUNDROBCODE 151031			// A.P.J Abdul kalam sir's birth date 
+#define MAXWEIGHT 256
+
+const int MAXROUNDROBSLOTS = MAXSERVERS*MAXWEIGHT + 10; 
+
 using namespace std;
 
-
-/*
-std::string convertStrToBin(std::string ip);
-int readConfigurationFile(char * fname);
-struct trie_node * create_trie_node();
-struct leaf_node* create_leaf_node();
-void trie_setup();
-void trie_insert(struct trie_node* ptr , struct leaf_node* leaf_anc, std::string const& binip , int ind , int lim ,int srvnum);
-void trie_remove(struct trie_node* ptr , std::string const& binip , int ind , int lim);
-struct leaf_node* trie_getserver(struct trie_node* ptr , std::string const& binip);
-*/

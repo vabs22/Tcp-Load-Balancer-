@@ -20,7 +20,7 @@ int main(int argc , char *argv[])
 		printf("Couldn't create socket\n");
 	
 	server.sin_family = AF_INET;
-	server.sin_addr.s_addr = inet_addr("192.168.1.36");
+	server.sin_addr.s_addr = inet_addr("192.168.1.35");
 	server.sin_port = htons( 5050 );
 
 	// connecting to server

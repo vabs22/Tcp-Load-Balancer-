@@ -8,8 +8,6 @@
 #include <string.h>
 #include <stdlib.h>
 
-
-
 int main(int argc , char *argv[])
 {
 	int socket_desc , host , c;
@@ -21,7 +19,7 @@ int main(int argc , char *argv[])
 	if(socket_desc == -1)
 		printf("Couldn't create socket\n");
 	
-	server.sin_addr.s_addr = inet_addr("192.168.1.36");
+	server.sin_addr.s_addr = inet_addr("192.168.1.35");
 	server.sin_family = AF_INET;
 	server.sin_port = htons( 6000 + num );
 
