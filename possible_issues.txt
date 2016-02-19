@@ -1,0 +1,2 @@
+(d)1. the threads created in main functiona have same thread id , this may cause problems.
+2. (issue) even though the server is live , sometimes the requests can't be directed to it despite no response from check thread about the server being inactive 

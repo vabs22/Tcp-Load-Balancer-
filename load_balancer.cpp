@@ -10,13 +10,17 @@ struct trie_node* head = NULL;
 struct trie_leaf* start = NULL , *end = NULL;
 vector < pair < std::string , int > > network_mapping , request_types;
 vector < pair<int,int> >request_mapping; 
-int server_allotment[MAXROUNDROBSLOTS] = {0};
+int server_allotment[MAXROUNDROBSLOTS] = {0} , server_availability[MAXSERVERS] = {0} , tmp_availability[MAXSERVERS] = {0};
+
+pthread_mutex_t lock_availability;
+
+sem_t sem_check_connection_threads;
 
 #include "functions.cpp"
 
 void* handle_connection(void* arg)
 {
-
+    cout<<"inside handler"<<endl;
     char error_mssg[] = "Service not available , server maybe temporarily down\n";
     struct sockaddr_in server;
     int socket_desc = 0 , host_desc = 0 , client_port = 0 , read_size , srvnum = 0;
@@ -29,15 +33,16 @@ void* handle_connection(void* arg)
     std::string client_ip(args->client_ip_addr);
     binip = convertStrToBin(client_ip);
     srvnum = args->srvnum;
-    cout<<client_port<<"\n"<<client_ip<<"\n"<<srvnum<<endl;
+    //cout<<client_port<<"\n"<<client_ip<<"\n"<<srvnum<<endl;
+    
 
     // socket setup
-    printf("inside handler\n");
+    //printf("inside handler\n");
     socket_desc = socket(AF_INET , SOCK_STREAM , 0);  // creates an unbound socket
     if(socket_desc == -1)
         printf("Couldn't create socket\n");
-    printf("%d\n",srvnum);
-    printf("%s\n%d\n",ptrServer[srvnum]->getip(),ptrServer[srvnum]->getport());
+    //printf("%d\n",srvnum);
+    //printf("%s\n%d\n",ptrServer[srvnum]->getip(),ptrServer[srvnum]->getport());
     server.sin_family = AF_INET;
     server.sin_addr.s_addr = inet_addr(ptrServer[srvnum]->getip());
     server.sin_port = htons( ptrServer[srvnum]->getport() );
@@ -76,22 +81,137 @@ void* handle_connection(void* arg)
     {
         perror("recv failed");
     }
+    free(args);
     return 0;
+}
+
+void* check_connection(void* x)
+{
+    int socket_desc;
+    struct sockaddr_in server;
+    int srvnum = *((int*)x) , result = 0 , status;
+
+    free(x);
+
+    socket_desc = socket(AF_INET , SOCK_STREAM , 0);  
+    if(socket_desc == -1)
+        printf("Couldn't create socket\n");
+    
+    server.sin_family = AF_INET;
+    server.sin_addr.s_addr = inet_addr(ptrServer[srvnum]->getip());
+    server.sin_port = htons( ptrServer[srvnum]->getport() );
+
+    if (connect(socket_desc , (struct sockaddr *)&server , sizeof(server)) < 0)
+    {
+        result = 0;
+        printf("Server %d not available\n" , srvnum);
+    }
+    else
+    {
+        result = 1;
+        close(socket_desc);
+    }
+
+    sem_wait(&sem_check_connection_threads);
+
+    tmp_availability[srvnum] = result;
+
+    sem_post(&sem_check_connection_threads);
+}
+
+void* server_periodic_health_check(void* args)
+{
+    int i , j;
+    pthread_t check_thread_id;
+
+    // Initialize the semaphore with a value of 1.
+    // Note the second argument: passing zero denotes
+    // that the semaphore is shared between threads (and
+    // not processes).
+    if(sem_init(&sem_check_connection_threads, 0, 1))
+    {
+        printf("Could not initialize a semaphore\n");
+        return NULL;
+    }
+
+    while(1)
+    {
+        memset(tmp_availability , 0 , sizeof(tmp_availability));
+        for(i=0;i<MAXSERVERS;i++)
+        {
+            if(ptrServer[i] != NULL)
+            {
+                int * tmp = (int *) malloc(sizeof(int));
+                *tmp = i;
+                if( pthread_create( &check_thread_id , NULL , check_connection , (void*) tmp) < 0)
+                {
+                    printf("could not create thread");
+                    continue;
+                    //return 1;
+                }
+                
+            }
+        }
+        pthread_join(check_thread_id , NULL);
+
+        pthread_mutex_lock(&lock_availability);
+        for(i=0;i<MAXSERVERS;i++)
+        {
+            server_availability[i] = tmp_availability[i];
+        }
+        pthread_mutex_unlock(&lock_availability);
+
+        sleep(TIME_CHECK_SERVER);
+    }
+    sem_destroy(&sem_check_connection_threads);
 }
 
 void initialise_forwarding_environment()
 {
-
+    // algorithm gathered from the configuration file
+    tailnum = ptrHeadNode->gettailNum();
+    algonum = ptrTailNode[tailnum]->getalgo();
+    if(algonum == ROUNDROBCODE)
+    {
+        totalplaces = setup_roundrobin();
+        if(totalplaces <= 0)
+        {
+            printf("Due to some unknown (obviously) error , round robin environment couldn't be setup\n");
+            return ;
+        }
+        iter = 0;
+    }
+    else if(algonum == IPFORCODE)
+    {
+        trie_setup();
+        pair<std::string , int>p;
+        for(int u=0;u<network_mapping.size();u++)
+        {
+            //cout<<u<<endl;
+            p = network_mapping[u];
+            if(ptrTailNode[tailnum]->checkserver(p.second))
+            {
+                //cout<<"srvnum : "<<p.second<<"_"<<convertStrToBin(p.first)<<endl;
+                trie_insert(head , NULL , convertStrToBin(p.first) , 0 , 32 , p.second);
+                
+            }
+        }
+    }
 }
 
 int main(int argc , char *argv[])
 {
-    int socket_desc , host , addr_size = 0 , current_srv_number = 0 , limit = 0 , x = 0 , srvnum = 0;
+    int socket_desc , host , addr_size = 0 , srvnum = 0 , yes = 1 , prev_iter = -1;
     struct sockaddr_in server_addr , client_addr;
-    pthread_t thread_id;
-    int type = 0 , status = 0 , yes = 1 , client_port = 0;
+    pthread_t thread_id , healthcheck;
     std::string client_ip;
+    char ips[][20] = {"192.168.1.0" , "1.1.1.0" , "200.200.200.0" , "190.0.0.0"};
 
+
+    /*
+            DATA WOULD BE GATHERED FROM CONFIGURATION FILE 
+    */
+   
     if( argc == 2 )
     {
         int result = readConfigurationFile(argv[1]);
@@ -107,17 +227,17 @@ int main(int argc , char *argv[])
         return -1;
     }
 
-    // for testing client ip method
-    //char * names[5] = {"127.0.0.1" , "127.127.0.0" , "222.222.222.222" , "0.189.221.47"};
 
+    /*
+            FRONT END OF LOAD BALANCER IS INITIALISED HERE
+    */
+    
     socket_desc = socket(AF_INET , SOCK_STREAM , 0);  // creates an unbound socket
     if(socket_desc == -1)
     {
         printf("Couldn't create socket\n");
         return -1;
     }
-   
-    //memset(server_addr , 0 , sizeof(server_addr));
     bzero(&server_addr, sizeof(server_addr));
     server_addr.sin_addr.s_addr = inet_addr(ptrHeadNode->getip().c_str());
     server_addr.sin_family = AF_INET;
@@ -147,72 +267,127 @@ int main(int argc , char *argv[])
         return -1;
     }
 
-    // algorithm gathered from the configuration file
-    tailnum = ptrHeadNode->gettailNum();
-    algonum = ptrTailNode[tailnum]->getalgo();
-    if(algonum == ROUNDROBCODE)
+    /*
+            PTHREAD MUTEX LOCKS AND SEMAPHORE INITIALISATION
+     */
+
+    if (pthread_mutex_init(&lock_availability, NULL) != 0)
     {
-        totalplaces = setup_roundrobin();
-        if(totalplaces <= 0)
-        {
-            printf("Due to some unknown (obviously) error , round robin environment couldn't be setup\n");
-            return -1;
-        }
-        iter = 0;
+        printf("\n mutex init failed\n");
+        return -1;
     }
-    else if(algonum == IPFORCODE)
+
+
+    // health check thread
+    if( pthread_create( &healthcheck , NULL , server_periodic_health_check , NULL) < 0)
     {
-        trie_setup();
-        pair<std::string , int>p;
-        for(int u=0;u<network_mapping.size();u++)
-        {
-            //cout<<u<<endl;
-            p = network_mapping[u];
-            if(ptrTailNode[tailnum]->checkserver(p.second))
-                trie_insert(head , NULL , convertStrToBin(p.first) , 0 , 32 , p.second);
-        }
+        printf("could not create server health check thread\n");
+        return -1;
     }
+
+    /*
+            ENVIRONMENT VARIABLES SETUP
+     */
+    initialise_forwarding_environment();
+
+
+    /*
+            MAIN WORKING LOOP OF THIS FUNCTION
+     */
+    
     // accept incoming connections
     addr_size =  sizeof( struct sockaddr_in);
-    char ips[][20] = {"192.168.1.0" , "1.1.1.0" , "200.200.200.0" , "190.0.0.0"};
-    int iter=0;
+    iter = 0;
+    
+    
+    struct trie_leaf* tmp = start;
+    while(tmp != end)
+    {
+        srvnum = tmp->srvnum;
+        cout<<"srvnum1 :"<<srvnum<<endl;
+        tmp = tmp->next;
+    }
+    tmp = end;
+    while(tmp != start)
+    {
+        srvnum = tmp->srvnum;
+        //cout<<"srvnum :"<<tmp->prev->srvnum<<endl;
+        cout<<"srvnum2 :"<<srvnum<<endl;
+        tmp = tmp->prev;
+    }
+    srvnum = 0;
+    
+   
     while(host = accept(socket_desc , (struct sockaddr *)&client_addr ,(socklen_t*)&addr_size))
     {
-        printf("New connection accepted:%d\n\n",host);
+        printf("New connection accepted:%d\n",host);
         
         // client's data accumulation 
-        //client_ip = inet_ntoa(client_addr.sin_addr);
-        client_ip = ips[iter];
-        client_port = ntohs(client_addr.sin_port);
-
+        //client_ip = inet_ntoa(client_addr.sin_addr);      // actual initialisation
+        client_ip = ips[iter];                              // for testing ip forwarding
+        
         struct thread_args * arg = (struct thread_args *)malloc(sizeof(struct thread_args));
         arg->host_socket_desc = host;
         strncpy(arg->client_ip_addr , inet_ntoa(client_addr.sin_addr) , sizeof(arg->client_ip_addr));
         arg->client_port = ntohs(client_addr.sin_port);
 
-        //actual one
+        //cout<<"variables fine"<<endl;
+        pthread_mutex_lock(&lock_availability);
         if(algonum == ROUNDROBCODE)
         {
             srvnum = server_allotment[iter];
+            prev_iter = iter;
+            while(server_availability[srvnum] == 0)
+            {
+                iter = (iter+1)%totalplaces;
+                srvnum = server_allotment[iter];
+                if(iter == prev_iter)
+                    break;
+            }
             iter = (iter+1)%totalplaces;
-            arg->srvnum = srvnum;
         }
         else if(algonum == IPFORCODE)
         {
             struct trie_leaf* tmp = trie_getserver(head , convertStrToBin(client_ip));
-            arg->srvnum = tmp->srvnum;
-            srvnum = arg->srvnum;
+            struct trie_leaf* aux = tmp;
+            srvnum = tmp->srvnum;
+            prev_iter = tmp->srvnum;
+            // cout<<"inside if"<<endl;
+            while(server_availability[srvnum] == 0 && tmp != start)
+            {
+                cout<<"srvnum1: "<<srvnum<<endl;
+                tmp = tmp->prev;
+                srvnum = tmp->srvnum;
+            }
+            if(tmp == start)
+            {
+                tmp = aux;
+                srvnum = tmp->srvnum;
+                while(server_availability[srvnum] == 0 && tmp != end)
+                {
+                    cout<<"srvnum2: "<<srvnum<<endl;
+                    tmp = tmp->next;
+                    srvnum = tmp->srvnum;
+                }
+                if(tmp == end)
+                    srvnum = prev_iter;
+            }
+            iter = (iter+1)%4;
         }
-        printf("srvnum :%d , iter : %d\n",srvnum,iter);
+        pthread_mutex_unlock(&lock_availability);
+        arg->srvnum = srvnum;
+        //cout<<"if is fine"<<endl;
+        cout<<client_ip<<endl;
+        printf("srvnum :%d , iter : %d\n\n",srvnum,iter);
 
         if( pthread_create( &thread_id , NULL , handle_connection , (void*) arg) < 0)
         {
             printf("could not create thread");
-            return 1;
+            continue;
         }
         //Now join the thread , so that we dont terminate before the thread
         //pthread_join( thread_id , NULL);
-        puts("Handler assigned");
+        //puts("Handler assigned");
         //sleep(120);
     }
     if (host < 0)
@@ -221,6 +396,8 @@ int main(int argc , char *argv[])
         return 1;
     }
     
+    pthread_mutex_destroy(&lock_availability);
     close(socket_desc);
+
     return 0;
 }

@@ -1,3 +1,37 @@
+std::string convertStrToBin(std::string ip)
+{
+    int i=0 , j=0 , lim = ip.length();
+    int num=0;
+    std::string binip;
+    vector <int> v;
+    for(i=0;i<lim;i++)
+    {
+        if(ip[i] == '.')
+        {
+            v.push_back(num);
+            num=0;
+        }
+        else
+        {
+            num = num*10 + (ip[i]-'0');
+        }
+    }
+    v.push_back(num);
+    for(i=3;i>=0;i--)
+    {
+        num = v[i];
+        for(j=0;j<8;j++)
+        {
+            if(num&1)
+                binip.insert(0,"1");
+            else
+                binip.insert(0,"0");
+            num = num/2;
+        }
+    }
+    return binip;
+}
+
 int strtoint(std::string str)
 {
 	int i=0 , len = str.length() , num=0;
@@ -165,7 +199,11 @@ void trie_setup()
 	end = create_trie_leaf();
 
 	start->next = end;
+	//start->prev = start;
+	start->srvnum = -2;
 	end->prev = start;
+	//end->next = end;
+	end->srvnum = -3;
 
 	struct trie_node* tmp = head;
 	for(int i=0;i<32;i++)
@@ -182,8 +220,9 @@ void trie_setup()
 		tmp->right = create_trie_node();
 		tmp->num_prefixes++;
 		tmp = tmp->right;
-		tmp->child = end;
+		tmp->child = start;
 	}
+	tmp->child = end;
 
 	head->child = start;
 }
@@ -196,11 +235,16 @@ void trie_insert(struct trie_node* ptr , struct trie_leaf* leaf_anc, std::string
 	{
 		struct trie_leaf * tmp = create_trie_leaf();
 		tmp->next = leaf_anc->next;
+		tmp->next->prev = tmp;
 		tmp->prev = leaf_anc;
 		leaf_anc->next = tmp;
 		tmp->srvnum = srvnum;
 
 		ptr->child = tmp;
+		/*if(tmp->prev == NULL || tmp->next == NULL)
+			cout<<"either is null"<<endl;
+		else
+			cout<<"left :"<<tmp->prev->srvnum<<"right :"<<tmp->next->srvnum<<endl;*/
 		return ;
 	}
 	if(binip[ind] == '0')
@@ -213,8 +257,9 @@ void trie_insert(struct trie_node* ptr , struct trie_leaf* leaf_anc, std::string
 	{
 		if(ptr->right == NULL)
 			ptr->right = create_trie_node();
-		if(ptr->child != NULL)
-			leaf_anc = ptr->child;
+		if(ptr->left != NULL )
+			leaf_anc = ptr->left->child;
+		//cout<<"ind :"<<ind<<"_"<<leaf_anc->srvnum<<endl;
 		trie_insert(ptr->right , leaf_anc , binip , ind+1 , lim , srvnum);
 	}
 
@@ -257,7 +302,7 @@ void trie_remove(struct trie_node* ptr , std::string const& binip , int ind , in
 	}
 
 	if(ptr->left == NULL && ptr->right == NULL)
-		ptr->child = NULL;
+		ptr->child = start;
 
 	if(ptr->left != NULL)
 		ptr->child = ptr->left->child;
@@ -309,12 +354,14 @@ struct trie_leaf* trie_getserver(struct trie_node* ptr , std::string const& bini
 		}
 	}
 }
+
 int gcd(int a , int b)
 {
 	if(a<b)
 		return gcd(b,a);
 	return b==0?a:gcd(b,a%b);
 }
+
 int setup_roundrobin()
 {
 	/*
@@ -375,8 +422,8 @@ int setup_roundrobin()
 			}
 		}
 	}
-	for(i=0;i<totalplaces;i++)
-		cout<<server_allotment[i]<<endl;
+	//for(i=0;i<totalplaces;i++)
+	//	cout<<server_allotment[i]<<endl;
 	return totalplaces;
 	
 }

@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include <semaphore.h>
 #define MAXSERVERS 70
 #define MAXTAILNODES 257
 #define MAXNETWORKS 1000
@@ -20,6 +21,7 @@
 #define IPFORCODE	1729			// C.P. Ramanujam's number
 #define ROUNDROBCODE 151031			// A.P.J Abdul kalam sir's birth date 
 #define MAXWEIGHT 256
+#define TIME_CHECK_SERVER 5
 
 const int MAXROUNDROBSLOTS = MAXSERVERS*MAXWEIGHT + 10; 
 

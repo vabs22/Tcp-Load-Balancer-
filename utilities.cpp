@@ -1,37 +1,3 @@
-std::string convertStrToBin(std::string ip)
-{
-    int i=0 , j=0 , lim = ip.length();
-    int num=0;
-    std::string binip;
-    vector <int> v;
-    for(i=0;i<lim;i++)
-    {
-        if(ip[i] == '.')
-        {
-            v.push_back(num);
-            num=0;
-        }
-        else
-        {
-            num = num*10 + (ip[i]-'0');
-        }
-    }
-    v.push_back(num);
-    for(i=3;i>=0;i--)
-    {
-        num = v[i];
-        for(j=0;j<8;j++)
-        {
-            if(num&1)
-                binip.insert(0,"1");
-            else
-                binip.insert(0,"0");
-            num = num/2;
-        }
-    }
-    return binip;
-}
-
 class HeadNode
 {
 	int port , tailNum;

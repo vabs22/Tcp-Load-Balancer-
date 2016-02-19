@@ -1,0 +1,14 @@
+all possible services:
+1. head : tailnum
+2. tail : algo , servernums
+3. server : add / update / modify / delete server data
+4. roundrob : add / update / modify / delete server - weight combination
+5. ipfor : add / update / modify / delete addr - srvnum combination
+
+
+1 - change tailnum in head class and call environment initialise function (mutex_total_loop)
+2 - change algo (mutex_total_loop)
+2 - but only those servers mentioned in server field can be modified (mutex_total_loop)
+3 - at the moment ignore deletion , rest changes can be done (reader - writer)
+4 - same as 2
+5 - operations besides deletion possible
